@@ -729,7 +729,7 @@ static struct dvb_usb_device_properties technisat_usb2_devices = {
 		.rc_codes    = RC_MAP_TECHNISAT_USB2,
 		.module_name = "technisat-usb2",
 		.rc_query    = technisat_usb2_rc_query,
-		.allowed_protos = IR_TYPE_ALL,
+		.allowed_protos = RC_TYPE_ALL,
 		.driver_type    = RC_DRIVER_IR_RAW,
 	}
 };

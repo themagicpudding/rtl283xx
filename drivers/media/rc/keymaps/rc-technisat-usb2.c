@@ -31,7 +31,7 @@
 
 #include <media/rc-map.h>
 
-static struct ir_scancode technisat_usb2_rc_keys[] = {
+static struct rc_map_table technisat_usb2[] = {
 	{0x0a0c, KEY_POWER},
 	{0x0a01, KEY_1},
 	{0x0a02, KEY_2},
@@ -67,23 +67,23 @@ static struct ir_scancode technisat_usb2_rc_keys[] = {
 	{0x0a0a, KEY_PROGRAM},
 };
 
-static struct rc_keymap technisat_usb2_map = {
+static struct rc_map_list technisat_usb2_map = {
 	.map = {
-		.scan    = technisat_usb2_rc_keys,
-		.size    = ARRAY_SIZE(technisat_usb2_rc_keys),
-		.ir_type = IR_TYPE_RC5,
+		.scan    = technisat_usb2,
+		.size    = ARRAY_SIZE(technisat_usb2),
+		.rc_type = RC_TYPE_RC5,
 		.name    = RC_MAP_TECHNISAT_USB2,
 	}
 };
 
 static int __init init_rc_map(void)
 {
-	return ir_register_map(&technisat_usb2_map);
+	return rc_map_register(&technisat_usb2_map);
 }
 
 static void __exit exit_rc_map(void)
 {
-	ir_unregister_map(&technisat_usb2_map);
+	rc_map_unregister(&technisat_usb2_map);
 }
 
 module_init(init_rc_map)

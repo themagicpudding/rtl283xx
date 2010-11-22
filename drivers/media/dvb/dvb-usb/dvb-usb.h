@@ -195,6 +195,7 @@ struct dvb_rc {
 	int (*rc_query) (struct dvb_usb_device *d);
 	int rc_interval;
 	bool bulk_mode;				/* uses bulk mode */
+	enum rc_driver_type driver_type;
 };
 
 /**

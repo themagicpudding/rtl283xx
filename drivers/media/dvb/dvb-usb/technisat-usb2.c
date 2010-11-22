@@ -640,18 +640,18 @@ unlock:
 	while (1) {
 		ev.pulse = !ev.pulse;
 		ev.duration = (*b * FIRMWARE_CLOCK_DIVISOR * FIRMWARE_CLOCK_TICK) / 1000;
-		ir_raw_event_store(d->rc_input_dev, &ev);
+		ir_raw_event_store(d->rc_dev, &ev);
 
 		b++;
 		if (*b == 0xff) {
 			ev.pulse = 0;
 			ev.duration = 888888*2;
-			ir_raw_event_store(d->rc_input_dev, &ev);
+			ir_raw_event_store(d->rc_dev, &ev);
 			break;
 		}
 	}
 
-	ir_raw_event_handle(d->rc_input_dev);
+	ir_raw_event_handle(d->rc_dev);
 
 	return 1;
 }
@@ -729,10 +729,8 @@ static struct dvb_usb_device_properties technisat_usb2_devices = {
 		.rc_codes    = RC_MAP_TECHNISAT_USB2,
 		.module_name = "technisat-usb2",
 		.rc_query    = technisat_usb2_rc_query,
-		.rc_props = {
-			.allowed_protos = IR_TYPE_ALL,
-			.driver_type    = RC_DRIVER_IR_RAW,
-		},
+		.allowed_protos = IR_TYPE_ALL,
+		.driver_type    = RC_DRIVER_IR_RAW,
 	}
 };
 

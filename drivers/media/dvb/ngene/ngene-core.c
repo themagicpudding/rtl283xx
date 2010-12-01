@@ -1516,7 +1516,7 @@ static int init_channels(struct ngene *dev)
 
 void __devexit ngene_remove(struct pci_dev *pdev)
 {
-	struct ngene *dev = (struct ngene *)pci_get_drvdata(pdev);
+	struct ngene *dev = pci_get_drvdata(pdev);
 	int i;
 
 	tasklet_kill(&dev->event_tasklet);
@@ -1537,12 +1537,11 @@ int __devinit ngene_probe(struct pci_dev *pci_dev,
 	if (pci_enable_device(pci_dev) < 0)
 		return -ENODEV;
 
-	dev = vmalloc(sizeof(struct ngene));
+	dev = vzalloc(sizeof(struct ngene));
 	if (dev == NULL) {
 		stat = -ENOMEM;
 		goto fail0;
 	}
-	memset(dev, 0, sizeof(struct ngene));
 
 	dev->pci_dev = pci_dev;
 	dev->card_info = (struct ngene_info *)id->driver_data;

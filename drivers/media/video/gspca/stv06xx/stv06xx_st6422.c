@@ -151,11 +151,11 @@ static int st6422_init(struct sd *sd)
 		{ STV_ISO_ENABLE, 0x00 }, /* disable capture */
 		{ 0x1436, 0x00 },
 		{ 0x1432, 0x03 },	/* 0x00-0x1F brightness */
-		{ 0x143a, 0xF9 },	/* 0x00-0x0F contrast */
+		{ 0x143a, 0xf9 },	/* 0x00-0x0F contrast */
 		{ 0x0509, 0x38 },	/* R */
 		{ 0x050a, 0x38 },	/* G */
 		{ 0x050b, 0x38 },	/* B */
-		{ 0x050c, 0x2A },
+		{ 0x050c, 0x2a },
 		{ 0x050d, 0x01 },
 
 
@@ -213,7 +213,6 @@ static int st6422_init(struct sd *sd)
 		{ 0x150e, 0x8e },
 		{ 0x150f, 0x37 },
 		{ 0x15c0, 0x00 },
-		{ 0x15c1, 1023 }, /* 160x120, ISOC_PACKET_SIZE */
 		{ 0x15c3, 0x08 },	/* 0x04/0x14 ... test pictures ??? */
 
 
@@ -237,23 +236,9 @@ static void st6422_disconnect(struct sd *sd)
 
 static int st6422_start(struct sd *sd)
 {
-	int err, packet_size;
+	int err;
 	struct cam *cam = &sd->gspca_dev.cam;
 	s32 *sensor_settings = sd->sensor_priv;
-	struct usb_host_interface *alt;
-	struct usb_interface *intf;
-
-	intf = usb_ifnum_to_if(sd->gspca_dev.dev, sd->gspca_dev.iface);
-	alt = usb_altnum_to_altsetting(intf, sd->gspca_dev.alt);
-	if (!alt) {
-		err("Couldn't get altsetting");
-		return -EIO;
-	}
-
-	packet_size = le16_to_cpu(alt->endpoint[0].desc.wMaxPacketSize);
-	err = stv06xx_write_bridge(sd, 0x15c1, packet_size);
-	if (err < 0)
-		return err;
 
 	if (cam->cam_mode[sd->gspca_dev.curr_mode].priv)
 		err = stv06xx_write_bridge(sd, 0x1505, 0x0f);

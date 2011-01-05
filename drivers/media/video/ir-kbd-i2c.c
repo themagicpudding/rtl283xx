@@ -46,7 +46,7 @@
 #include <linux/i2c.h>
 #include <linux/workqueue.h>
 
-#include <media/rc-core.h>
+#include <media/ir-core.h>
 #include <media/ir-kbd-i2c.h>
 
 /* ----------------------------------------------------------------------- */
@@ -252,7 +252,7 @@ static void ir_key_poll(struct IR_i2c *ir)
 	}
 
 	if (rc)
-		rc_keydown(ir->rc, ir_key, 0);
+		ir_keydown(ir->input, ir_key, 0);
 }
 
 static void ir_work(struct work_struct *work)
@@ -269,18 +269,22 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	char *ir_codes = NULL;
 	const char *name = NULL;
-	u64 rc_type = RC_TYPE_UNKNOWN;
+	u64 ir_type = 0;
 	struct IR_i2c *ir;
-	struct rc_dev *rc = NULL;
+	struct input_dev *input_dev;
 	struct i2c_adapter *adap = client->adapter;
 	unsigned short addr = client->addr;
 	int err;
 
-	ir = kzalloc(sizeof(struct IR_i2c), GFP_KERNEL);
-	if (!ir)
-		return -ENOMEM;
+	ir = kzalloc(sizeof(struct IR_i2c),GFP_KERNEL);
+	input_dev = input_allocate_device();
+	if (!ir || !input_dev) {
+		err = -ENOMEM;
+		goto err_out_free;
+	}
 
 	ir->c = client;
+	ir->input = input_dev;
 	ir->polling_interval = DEFAULT_POLLING_INTERVAL;
 	i2c_set_clientdata(client, ir);
 
@@ -288,7 +292,7 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	case 0x64:
 		name        = "Pixelview";
 		ir->get_key = get_key_pixelview;
-		rc_type     = RC_TYPE_OTHER;
+		ir_type     = IR_TYPE_OTHER;
 		ir_codes    = RC_MAP_EMPTY;
 		break;
 	case 0x18:
@@ -296,7 +300,7 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	case 0x1a:
 		name        = "Hauppauge";
 		ir->get_key = get_key_haup;
-		rc_type     = RC_TYPE_RC5;
+		ir_type     = IR_TYPE_RC5;
 		if (hauppauge == 1) {
 			ir_codes    = RC_MAP_HAUPPAUGE_NEW;
 		} else {
@@ -306,19 +310,19 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	case 0x30:
 		name        = "KNC One";
 		ir->get_key = get_key_knc1;
-		rc_type     = RC_TYPE_OTHER;
+		ir_type     = IR_TYPE_OTHER;
 		ir_codes    = RC_MAP_EMPTY;
 		break;
 	case 0x6b:
 		name        = "FusionHDTV";
 		ir->get_key = get_key_fusionhdtv;
-		rc_type     = RC_TYPE_RC5;
+		ir_type     = IR_TYPE_RC5;
 		ir_codes    = RC_MAP_FUSIONHDTV_MCE;
 		break;
 	case 0x40:
 		name        = "AVerMedia Cardbus remote";
 		ir->get_key = get_key_avermedia_cardbus;
-		rc_type     = RC_TYPE_OTHER;
+		ir_type     = IR_TYPE_OTHER;
 		ir_codes    = RC_MAP_AVERMEDIA_CARDBUS;
 		break;
 	}
@@ -329,11 +333,9 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 						client->dev.platform_data;
 
 		ir_codes = init_data->ir_codes;
-		rc = init_data->rc_dev;
-
 		name = init_data->name;
 		if (init_data->type)
-			rc_type = init_data->type;
+			ir_type = init_data->type;
 
 		if (init_data->polling_interval)
 			ir->polling_interval = init_data->polling_interval;
@@ -364,21 +366,8 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		}
 	}
 
-	if (!rc) {
-		/*
-		 * If platform_data doesn't specify rc_dev, initilize it
-		 * internally
-		 */
-		rc = rc_allocate_device();
-		if (!rc) {
-			err = -ENOMEM;
-			goto err_out_free;
-		}
-	}
-	ir->rc = rc;
-
 	/* Make sure we are all setup before going on */
-	if (!name || !ir->get_key || !rc_type || !ir_codes) {
+	if (!name || !ir->get_key || !ir_type || !ir_codes) {
 		dprintk(1, ": Unsupported device at address 0x%02x\n",
 			addr);
 		err = -ENODEV;
@@ -393,28 +382,18 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		 dev_name(&adap->dev),
 		 dev_name(&client->dev));
 
-	/*
-	 * Initialize input_dev fields
-	 * It doesn't make sense to allow overriding them via platform_data
-	 */
-	rc->input_id.bustype = BUS_I2C;
-	rc->input_phys       = ir->phys;
-	rc->input_name	     = ir->name;
+	/* init + register input device */
+	ir->ir_type = ir_type;
+	input_dev->id.bustype = BUS_I2C;
+	input_dev->name       = ir->name;
+	input_dev->phys       = ir->phys;
 
-	/*
-	 * Initialize the other fields of rc_dev
-	 */
-	rc->map_name       = ir->ir_codes;
-	rc->allowed_protos = rc_type;
-	if (!rc->driver_name)
-		rc->driver_name = MODULE_NAME;
-
-	err = rc_register_device(rc);
+	err = ir_input_register(ir->input, ir->ir_codes, NULL, MODULE_NAME);
 	if (err)
 		goto err_out_free;
 
 	printk(MODULE_NAME ": %s detected at %s [%s]\n",
-	       ir->name, ir->phys, adap->name);
+	       ir->input->name, ir->input->phys, adap->name);
 
 	/* start polling via eventd */
 	INIT_DELAYED_WORK(&ir->work, ir_work);
@@ -423,8 +402,6 @@ static int ir_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	return 0;
 
  err_out_free:
-	/* Only frees rc if it were allocated internally */
-	rc_free_device(rc);
 	kfree(ir);
 	return err;
 }
@@ -437,7 +414,7 @@ static int ir_remove(struct i2c_client *client)
 	cancel_delayed_work_sync(&ir->work);
 
 	/* unregister device */
-	rc_unregister_device(ir->rc);
+	ir_input_unregister(ir->input);
 
 	/* free memory */
 	kfree(ir);

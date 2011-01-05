@@ -309,10 +309,7 @@ static int pwc_vidioc_set_fmt(struct pwc_device *pdev, struct v4l2_format *f)
 	    pixelformat != V4L2_PIX_FMT_PWC2)
 		return -EINVAL;
 
-	if (pdev->iso_init)
-		return -EBUSY;
-
-	PWC_DEBUG_IOCTL("Trying to set format to: width=%d height=%d fps=%d "
+	PWC_DEBUG_IOCTL("Try to change format to: width=%d height=%d fps=%d "
 			"compression=%d snapshot=%d format=%c%c%c%c\n",
 			f->fmt.pix.width, f->fmt.pix.height, fps,
 			compression, snapshot,
@@ -321,14 +318,14 @@ static int pwc_vidioc_set_fmt(struct pwc_device *pdev, struct v4l2_format *f)
 			(pixelformat>>16)&255,
 			(pixelformat>>24)&255);
 
-	ret = pwc_set_video_mode(pdev,
+	ret = pwc_try_video_mode(pdev,
 				 f->fmt.pix.width,
 				 f->fmt.pix.height,
 				 fps,
 				 compression,
 				 snapshot);
 
-	PWC_DEBUG_IOCTL("pwc_set_video_mode(), return=%d\n", ret);
+	PWC_DEBUG_IOCTL("pwc_try_video_mode(), return=%d\n", ret);
 
 	if (ret)
 		return ret;
@@ -885,7 +882,9 @@ long pwc_video_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 		case VIDIOC_STREAMON:
 		{
-			return pwc_isoc_init(pdev);
+			/* WARNING: pwc_try_video_mode() called pwc_isoc_init */
+			pwc_isoc_init(pdev);
+			return 0;
 		}
 
 		case VIDIOC_STREAMOFF:

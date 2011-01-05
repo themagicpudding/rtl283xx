@@ -26,8 +26,9 @@
 #include <linux/proc_fs.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
+#include <linux/input.h>
 #include <linux/slab.h>
-#include <media/rc-core.h>
+#include <media/ir-core.h>
 
 #include "demux.h"
 #include "dmxdev.h"
@@ -265,7 +266,7 @@ static void dm1105_card_list(struct pci_dev *pci)
 
 /* infrared remote control */
 struct infrared {
-	struct rc_dev		*dev;
+	struct input_dev	*input_dev;
 	char			input_phys[32];
 	struct work_struct	work;
 	u32			ir_command;
@@ -531,7 +532,7 @@ static void dm1105_emit_key(struct work_struct *work)
 
 	data = (ircom >> 8) & 0x7f;
 
-	rc_keydown(ir->dev, data, 0);
+	ir_keydown(ir->input_dev, data, 0);
 }
 
 /* work handler */
@@ -592,47 +593,46 @@ static irqreturn_t dm1105_irq(int irq, void *dev_id)
 
 int __devinit dm1105_ir_init(struct dm1105_dev *dm1105)
 {
-	struct rc_dev *dev;
+	struct input_dev *input_dev;
+	char *ir_codes = RC_MAP_DM1105_NEC;
 	int err = -ENOMEM;
 
-	dev = rc_allocate_device();
-	if (!dev)
+	input_dev = input_allocate_device();
+	if (!input_dev)
 		return -ENOMEM;
 
+	dm1105->ir.input_dev = input_dev;
 	snprintf(dm1105->ir.input_phys, sizeof(dm1105->ir.input_phys),
 		"pci-%s/ir0", pci_name(dm1105->pdev));
 
-	dev->driver_name = MODULE_NAME;
-	dev->map_name = RC_MAP_DM1105_NEC;
-	dev->driver_type = RC_DRIVER_SCANCODE;
-	dev->input_name = "DVB on-card IR receiver";
-	dev->input_phys = dm1105->ir.input_phys;
-	dev->input_id.bustype = BUS_PCI;
-	dev->input_id.version = 1;
+	input_dev->name = "DVB on-card IR receiver";
+	input_dev->phys = dm1105->ir.input_phys;
+	input_dev->id.bustype = BUS_PCI;
+	input_dev->id.version = 1;
 	if (dm1105->pdev->subsystem_vendor) {
-		dev->input_id.vendor = dm1105->pdev->subsystem_vendor;
-		dev->input_id.product = dm1105->pdev->subsystem_device;
+		input_dev->id.vendor = dm1105->pdev->subsystem_vendor;
+		input_dev->id.product = dm1105->pdev->subsystem_device;
 	} else {
-		dev->input_id.vendor = dm1105->pdev->vendor;
-		dev->input_id.product = dm1105->pdev->device;
+		input_dev->id.vendor = dm1105->pdev->vendor;
+		input_dev->id.product = dm1105->pdev->device;
 	}
-	dev->dev.parent = &dm1105->pdev->dev;
+
+	input_dev->dev.parent = &dm1105->pdev->dev;
 
 	INIT_WORK(&dm1105->ir.work, dm1105_emit_key);
 
-	err = rc_register_device(dev);
+	err = ir_input_register(input_dev, ir_codes, NULL, MODULE_NAME);
 	if (err < 0) {
-		rc_free_device(dev);
+		input_free_device(input_dev);
 		return err;
 	}
 
-	dm1105->ir.dev = dev;
 	return 0;
 }
 
 void __devexit dm1105_ir_exit(struct dm1105_dev *dm1105)
 {
-	rc_unregister_device(dm1105->ir.dev);
+	ir_input_unregister(dm1105->ir.input_dev);
 }
 
 static int __devinit dm1105_hw_init(struct dm1105_dev *dev)

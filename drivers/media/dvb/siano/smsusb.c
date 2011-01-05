@@ -288,7 +288,8 @@ static int smsusb1_setmode(void *context, int mode)
 
 static void smsusb_term_device(struct usb_interface *intf)
 {
-	struct smsusb_device_t *dev = usb_get_intfdata(intf);
+	struct smsusb_device_t *dev =
+		(struct smsusb_device_t *) usb_get_intfdata(intf);
 
 	if (dev) {
 		smsusb_stop_streaming(dev);
@@ -444,7 +445,8 @@ static void smsusb_disconnect(struct usb_interface *intf)
 
 static int smsusb_suspend(struct usb_interface *intf, pm_message_t msg)
 {
-	struct smsusb_device_t *dev = usb_get_intfdata(intf);
+	struct smsusb_device_t *dev =
+		(struct smsusb_device_t *)usb_get_intfdata(intf);
 	printk(KERN_INFO "%s: Entering status %d.\n", __func__, msg.event);
 	smsusb_stop_streaming(dev);
 	return 0;
@@ -453,7 +455,8 @@ static int smsusb_suspend(struct usb_interface *intf, pm_message_t msg)
 static int smsusb_resume(struct usb_interface *intf)
 {
 	int rc, i;
-	struct smsusb_device_t *dev = usb_get_intfdata(intf);
+	struct smsusb_device_t *dev =
+		(struct smsusb_device_t *)usb_get_intfdata(intf);
 	struct usb_device *udev = interface_to_usbdev(intf);
 
 	printk(KERN_INFO "%s: Entering.\n", __func__);
